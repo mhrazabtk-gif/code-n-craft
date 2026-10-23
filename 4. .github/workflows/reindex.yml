@@ -2,8 +2,8 @@ name: Hourly Site Re-indexing
 
 on:
   schedule:
-    - cron: '0 * * * *' # Har ghante on the hour chalega
-  workflow_dispatch: # Manual run button ke liye
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
@@ -24,7 +24,8 @@ jobs:
         run: node ping-indexnow.js
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@3
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy public --project-name=code-n-craft --commit-dirty=true
