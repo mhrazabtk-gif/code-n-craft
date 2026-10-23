@@ -1,30 +1,38 @@
-name: Hourly Site Re-indexing
+const fs = require('fs');
+const path = require('path');
 
-on:
-  schedule:
-    - cron: '0 * * * *' # Har ghante on the hour chalega
-  workflow_dispatch: # Manual run button ke liye
+const DOMAIN = 'https://code-n-craft.pages.dev';
+const urlsFile = path.join(__dirname, 'urls.txt');
+const outputPath = path.join(__dirname, 'public', 'sitemap.xml');
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+// Ensure public directory exists
+if (!fs.existsSync(path.join(__dirname, 'public'))) {
+    fs.mkdirSync(path.join(__dirname, 'public'), { recursive: true });
+}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+let urls = [];
+if (fs.existsSync(urlsFile)) {
+    urls = fs.readFileSync(urlsFile, 'utf8')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+} else {
+    urls = [`${DOMAIN}/`];
+}
 
-      - name: Run Sitemap Builder
-        run: node build-sitemap.js
+const now = new Date().toISOString();
 
-      - name: Run IndexNow Ping
-        run: node ping-indexnow.js
+let sitemapXML = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+sitemapXML += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: pages deploy public --project-name=code-n-craft --commit-dirty=true
+urls.forEach(url => {
+    sitemapXML += `  <url>\n`;
+    sitemapXML += `    <loc>${url}</loc>\n`;
+    sitemapXML += `    <lastmod>${now}</lastmod>\n`;
+    sitemapXML += `  </url>\n`;
+});
+
+sitemapXML += `</urlset>`;
+
+fs.writeFileSync(outputPath, sitemapXML, 'utf8');
+console.log(`Sitemap successfully generated with ${urls.length} URLs at ${now}`);
