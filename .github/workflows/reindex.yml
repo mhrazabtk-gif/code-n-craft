@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: code-n-craft-deployment
+  group: code-n-craft-production
   cancel-in-progress: false
 
 jobs:
@@ -27,50 +27,51 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Validate and Prepare Files
+      - name: Prepare Deployment and Protect Redirects
         shell: bash
         run: |
           set -euo pipefail
 
           mkdir -p public
 
-          # Restore root-level redirects if present.
+          # Recover root-level redirects if they exist.
           if [ ! -f public/_redirects ] && [ -f _redirects ]; then
             cp _redirects public/_redirects
           fi
 
-          # Never deploy without original redirect rules.
+          # Never deploy without the original rules.
           if [ ! -s public/_redirects ]; then
-            echo "::error::public/_redirects is missing or empty."
-            echo "Upload your original redirect rules before deploying."
+            echo "::error::public/_redirects is missing."
+            echo "Restore your original redirect rules before deploying."
             exit 1
           fi
 
+          # Count active redirect rules.
           RULE_COUNT=$(grep -cvE '^[[:space:]]*(#.*)?$' public/_redirects || true)
 
           if [ "$RULE_COUNT" -eq 0 ] || [ "$RULE_COUNT" -gt 2100 ]; then
-            echo "::error::Invalid Cloudflare Pages redirect rule count: $RULE_COUNT"
+            echo "::error::Invalid redirect count: $RULE_COUNT"
             exit 1
           fi
 
-          # Prepare the IndexNow key file.
-          KEY_FILE="7474419b209041c3864e1f767719f56c.txt"
+          # Publish the existing IndexNow key used by ping-indexnow.js.
+          KEY="7474419b209041c3864e1f767719f56c"
+          KEY_FILE="${KEY}.txt"
 
           if [ -f "$KEY_FILE" ]; then
             cp "$KEY_FILE" "public/$KEY_FILE"
+          elif [ -f "public/$KEY_FILE" ]; then
+            :
+          else
+            printf '%s' "$KEY" > "public/$KEY_FILE"
           fi
 
-          if [ ! -s "public/$KEY_FILE" ]; then
-            echo "::error::IndexNow verification key file is missing."
-            exit 1
-          fi
-
-          echo "Redirect rules validated: $RULE_COUNT"
+          echo "Redirect rules preserved: $RULE_COUNT"
 
       - name: Generate Sitemap
         run: node build-sitemap.js
 
-      - name: Verify Deployment Output
+      - name: Verify Deployment Files
         shell: bash
         run: |
           set -euo pipefail
@@ -79,7 +80,14 @@ jobs:
           test -s public/_redirects
           test -s public/7474419b209041c3864e1f767719f56c.txt
 
-          echo "Sitemap, redirects and IndexNow key are present."
+          RULE_COUNT=$(grep -cvE '^[[:space:]]*(#.*)?$' public/_redirects || true)
+
+          if [ "$RULE_COUNT" -eq 0 ] || [ "$RULE_COUNT" -gt 2100 ]; then
+            echo "::error::Redirect validation failed."
+            exit 1
+          fi
+
+          echo "Sitemap, redirects and IndexNow key verified."
 
       - name: Deploy to Cloudflare Pages
         env:
