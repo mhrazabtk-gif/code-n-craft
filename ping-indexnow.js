@@ -2,10 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
-const HOST = 'code-n-craft.pages.dev';
+const HOST = 'code-n-craft.pageaura.xyz';
 // Apna IndexNow verification key yahan string mein dalein (jo public/ root par .txt file ka naam hai)
 const KEY = '7474419b209041c3864e1f767719f56c'; 
-const KEY_LOCATION = `https://code-n-craft.pages.dev/7474419b209041c3864e1f767719f56c.txt`;
+const KEY_LOCATION = `https://code-n-craft.pageaura.xyz/7474419b209041c3864e1f767719f56c.txt`;
 
 const urlsFile = path.join(__dirname, 'urls.txt');
 let urlList = [];
